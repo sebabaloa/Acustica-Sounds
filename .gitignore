@@ -1,0 +1,30 @@
+# Node
+node_modules/
+dist/
+build/
+.cache/
+
+# Env vars
+.env
+.env.local
+.env.development.local
+.env.production.local
+
+# Logs
+logs
+*.log
+
+# Editor config
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Next.js
+.next/
+out/
+
+# Test coverage
+coverage/
