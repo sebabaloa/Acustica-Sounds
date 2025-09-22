@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import Link from 'next/link'
 
 export default function HomePage() {
   return (
@@ -7,7 +8,9 @@ export default function HomePage() {
       <p className="mb-6 text-muted-foreground text-center max-w-lg">
         Tu plataforma de cursos audiovisuales con tecnología DRM.
       </p>
-      <Button>Explorar cursos</Button>
+      <Link href="/courses">
+        <Button>Explorar cursos</Button>
+      </Link>
     </main>
   );
 }
