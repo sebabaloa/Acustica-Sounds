@@ -1,0 +1,1 @@
+Esta rama contiene las implementaciones de prueba (auth, cursos, enrollments y frontend). La rama develop fue restaurada al estado remoto. Revisa la rama 'test/implementations' para ver los cambios y abrir un PR si quieres fusionarlos.
