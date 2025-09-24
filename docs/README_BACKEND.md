@@ -1,120 +1,115 @@
+# AcústicaSounds – Backend API
 
-1 de 22.670
-(sin asunto)
-Recibidos
+## Overview
+- API service located in `apps/api`
+- Stack: Node.js, Express, Mongoose, Zod, Vitest
+- Auth: email + password with JWT access/refresh tokens
 
-sebastian baloa <sebabaloa@gmail.com>
-Adjuntos
-18:56 (hace 0 minutos)
-para mí
+## Prerequisites
+- Node.js >= 18
+- pnpm
+- MongoDB Atlas account with a database named `acustica-sounds`
 
-
- 1 archivo adjunto
-•  Analizado por Gmail
-Redactar:
-Mensaje nuevo
-MinimizarVentana externaCerrar
-Destinatarios
-Asunto
-# 📘 AcústicaSounds – Backend API (README_BACKEND.md)
-
-**Proyecto:** AcústicaSounds  
-**Módulo:** Backend API (Express + MongoDB)  
-**Versión:** MVP – Incremento 1  
-**Fecha:** 2025-07-20  
-**Autor:** @sebabaloa
-
----
-
-## 📁 Estructura del backend
-
+## Environment Variables (`apps/api/.env`)
 ```
-apps/api/
-├── src/
-│   └── index.js              ← Servidor Express y conexión MongoDB
-├── .env                      ← Variables de entorno (no versionado)
-├── .gitignore                ← Ignora `.env` y `node_modules/`
-├── package.json              ← Configuración de scripts y dependencias
-```
-
----
-
-## 🔧 Tecnologías utilizadas
-
-- **Node.js** + **Express**
-- **MongoDB Atlas**
-- **mongoose** (ODM)
-- **dotenv** (manejo de configuración)
-- **cors** (CORS middleware)
-
----
-
-## 🚀 Setup local
-
-### 1. Instalar dependencias
-
-```bash
-cd apps/api
-npm npm init -y
-npm install express cors dotenv mongoose
-```
-
-### 2. Crear archivo `.env`
-
-```
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster>.mongodb.net/?retryWrites=true&w=majority
+MONGODB_DB_NAME=acustica-sounds
+JWT_SECRET=<32+ char random string>
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_SECRET=<32+ char random string>
+JWT_REFRESH_EXPIRES_IN=7d
 PORT=3001
-MONGODB_URI=mongodb+srv://<usuario>:<clave>@acusticasounds-cluster.XXXX.mongodb.net/acusticasounds?retryWrites=true&w=majority
 ```
+> Usa la misma estructura en `.env.example` y nunca subas credenciales reales.
 
-⚠️ Codifica caracteres especiales en la contraseña (ej: `!` → `%21`)
-
-### 3. Iniciar el servidor
-
+## Install & Run
 ```bash
-npm run dev
+pnpm install
+pnpm --filter ./apps/api dev
 ```
+La API expone `GET /health` y loguea `API on :3001` al conectar con Atlas.
 
----
-
-## ✅ Funcionalidades del Incremento 1
-
-- ✅ Estructura básica Express (`src/index.js`)
-- ✅ Middleware `cors` y `express.json()`
-- ✅ Endpoint de prueba `GET /ping → { ok: true }`
-- ✅ Conexión a MongoDB Atlas validada por consola
-
----
-
-## 📄 `.env.example`
-
-```env
-PORT=
-MONGODB_URI=
-```
-
----
-
-## 🧪 Verificación
-
-| Acción                 | Resultado esperado                     |
-|------------------------|-----------------------------------------|
-| `npm run dev`          | `API server running at http://localhost:3001` |
-| GET `/ping`            | `{ "ok": true }` en JSON               |
-| Conexión MongoDB       | Mensaje ✅ en consola                   |
-
----
-
-## 📦 Commit asociado
-
+## Auth Flow
+### Registrar usuario
 ```bash
-feat(api): conexión a MongoDB Atlas finalizada y API activa en /ping
+curl -i -X POST http://localhost:3001/auth/register   -H "Content-Type: application/json"   -d '{"email":"demo@example.com","password":"Secret123!"}'
+```
+- Respuesta: `201 {"userId":"<mongoId>"}`
+
+### Login
+```bash
+curl -i -X POST http://localhost:3001/auth/login   -H "Content-Type: application/json"   -d '{"email":"demo@example.com","password":"Secret123!"}'
+```
+- Respuesta: `200 {"accessToken":"...","refreshToken":"..."}`
+- `accessToken` dura `JWT_EXPIRES_IN` (15m por defecto)
+- `refreshToken` dura `JWT_REFRESH_EXPIRES_IN` (7d por defecto)
+
+### Perfil autenticado
+```bash
+curl -i http://localhost:3001/users/me   -H "Authorization: Bearer <accessToken>"
+```
+- Respuesta: `200` con email, role y timestamps
+
+### Refrescar tokens
+```bash
+curl -i -X POST http://localhost:3001/auth/refresh   -H "Content-Type: application/json"   -d '{"refreshToken":"<refreshToken>"}'
+```
+- Respuesta: `200` con nuevo par de tokens
+- El refresh viejo se invalida inmediatamente (rotación con `tokenVersion`)
+
+## Tests
+```bash
+pnpm --filter ./apps/api test
 ```
 
----
+## Seed (opcional)
+```bash
+pnpm --filter ./apps/api seed
+```
+Genera un `Demo Track` en la base configurada para validaciones rápidas.
 
-## 📌 Próximos pasos (Incremento 2)
+### E2E (requires Mongo URI)
+Set `E2E_MONGODB_URI` (or fallback `MONGODB_URI`) before running Vitest so the end-to-end suite can hit register → login → tracks using a dedicated database.
+Cada ejecución limpia la base llamando a `dropDatabase()`, por lo que se recomienda apuntar a `acustica-sounds-test` o un cluster aislado.
 
-- Modelo `Usuario` con validación
-- Registro (`POST /register`)
-- Hash de contraseñas
-- Guardar usuarios en MongoDB
+Ejemplo (cluster separado):
+```bash
+export E2E_MONGODB_URI="mongodb+srv://user:pass@cluster.mongodb.net/acustica-sounds-test?retryWrites=true&w=majority"
+pnpm --filter ./apps/api test
+```
+- 34 pruebas (`auth`, `users/me`, `tracks`, middlewares, e2e`) pasan con Vitest
+
+## Troubleshooting
+- `MongooseServerSelectionError`: verifica tu IP en Atlas → Network Access
+- `MongoServerError: bad auth`: resetea la contraseña del usuario Atlas y actualiza la URI
+- `INVALID_TOKEN`: usa un access token completo y vigente o refresca con `/auth/refresh`
+
+## Tracks (nuevo dominio protegido)
+### Listar tracks
+```bash
+curl -i http://localhost:3001/tracks \
+  -H "Authorization: Bearer <accessToken>"
+```
+- Respuesta: `200 {"tracks":[...]}`
+
+### Crear track
+```bash
+curl -i -X POST http://localhost:3001/tracks \
+  -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{"title":"Demo","artist":"Artista","duration":180}'
+```
+- Respuesta: `201 {"track":{...}}`
+
+## Next Increments
+- Crear seeds o UI para gestionar tracks (create/update/delete)
+- Añadir CRUD completo para tracks (update/delete) y cobertura e2e
+- Exportar colección HTTPie/Postman y automatizar pruebas end-to-end
+
+## Admin bootstrap
+Para crear o ascender un usuario a administrador usa:
+```bash
+pnpm --filter ./apps/api promote-admin <email> [password]
+```
+- Si el usuario no existe debes pasar también la contraseña; se creará con rol `admin`.
+- Si ya existe, el script actualiza su rol a `admin` y reutiliza su contraseña actual.

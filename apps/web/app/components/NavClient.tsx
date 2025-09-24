@@ -14,7 +14,7 @@ export default function NavClient() {
 
   return (
     <div className="container mx-auto flex items-center justify-between">
-      <Link href="/" className="font-bold">Acustica</Link>
+      <Link href="/" className="font-bold">Vivace</Link>
       <nav className="space-x-4">
         <Link href="/courses" className="text-sm text-gray-700">Cursos</Link>
         {loading ? (

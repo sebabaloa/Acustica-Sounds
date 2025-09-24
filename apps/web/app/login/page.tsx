@@ -1,6 +1,6 @@
 "use client"
 import React, { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 
 export default function LoginPage() {
@@ -8,6 +8,8 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const registered = searchParams.get('registered') === '1'
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,7 +22,7 @@ export default function LoginPage() {
     })) as unknown as { error?: string } | null
 
     if (res && res.error) {
-      setError(res.error || 'Login failed')
+      setError(res.error === 'CredentialsSignin' ? 'Credenciales inválidas' : res.error || 'Login failed')
       return
     }
 
@@ -31,6 +33,7 @@ export default function LoginPage() {
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-2xl font-bold mb-4">Iniciar sesión</h1>
+      {registered ? <div className="mb-4 text-green-600">Cuenta creada con éxito. Ahora puedes iniciar sesión.</div> : null}
       <form onSubmit={onSubmit} className="max-w-md">
         <label className="block mb-2">
           <span className="text-sm">Email</span>

@@ -1,55 +1,113 @@
 "use client"
 import React, { useEffect, useState } from 'react'
+import { useSession } from 'next-auth/react'
 import Link from 'next/link'
 
-type Course = {
+interface Track {
+  id: string
   title: string
-  slug: string
-  description?: string
-  price?: number
+  artist: string
+  duration?: number
+  coverUrl?: string
 }
 
-export default function CoursesPage() {
-  const [courses, setCourses] = useState<Course[]>([])
+export default function TracksPage() {
+  const { data: session, status } = useSession()
+  const [tracks, setTracks] = useState<Track[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    let mounted = true
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
 
-    fetch(`${apiUrl}/courses`).then(async (res) => {
-      if (!mounted) return
-      if (!res.ok) {
-        setError('Failed to load courses')
+    if (status === 'loading') return
+
+    if (status === 'unauthenticated') {
+      setError('Necesitas iniciar sesión para ver los cursos')
+      setLoading(false)
+      return
+    }
+
+    if (!session?.accessToken) {
+      setError('Sesión inválida, intenta iniciar sesión de nuevo')
+      setLoading(false)
+      return
+    }
+
+    const controller = new AbortController()
+
+    const fetchTracks = async () => {
+      setLoading(true)
+      try {
+        const res = await fetch(`${baseUrl}/tracks`, {
+          headers: {
+            Authorization: `Bearer ${session.accessToken}`,
+          },
+          signal: controller.signal,
+        })
+
+        if (!res.ok) {
+          if (res.status === 401) {
+            setError('Tu sesión expiró, vuelve a iniciar sesión')
+          } else {
+            setError('No se pudieron cargar los cursos')
+          }
+          setLoading(false)
+          return
+        }
+
+        const data = await res.json()
+        setTracks(data.tracks || [])
         setLoading(false)
-        return
+      } catch (err) {
+        if (controller.signal.aborted) return
+        setError(String(err))
+        setLoading(false)
       }
-      const data = await res.json()
-      setCourses(data.courses || [])
-      setLoading(false)
-    }).catch((err) => {
-      if (!mounted) return
-      setError(String(err))
-      setLoading(false)
-    })
+    }
 
-    return () => { mounted = false }
-  }, [])
+    fetchTracks()
+
+    return () => {
+      controller.abort()
+    }
+  }, [session?.accessToken, status])
+
+  if (loading) {
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-bold mb-4">Cursos</h1>
+        <p className="text-gray-500">Cargando cursos...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-8">
+        <h1 className="text-2xl font-bold mb-4">Cursos</h1>
+        <p className="text-red-600">{error}</p>
+      </div>
+    )
+  }
 
   return (
     <div className="p-8">
       <h1 className="text-2xl font-bold mb-4">Cursos</h1>
-      {loading ? (
-        <div className="text-gray-500">Cargando cursos...</div>
-      ) : error ? (
-        <div className="text-red-600">Error: {error}</div>
+      {tracks.length === 0 ? (
+        <p className="text-gray-500">Aún no hay cursos disponibles.</p>
       ) : (
         <ul>
-          {courses.map((c: Course) => (
-            <li key={c.slug} className="mb-3">
-              <Link href={`/courses/${c.slug}`} className="text-blue-600">{c.title}</Link>
-              <p className="text-sm text-muted">{c.description}</p>
+          {tracks.map((track) => (
+            <li key={track.id} className="mb-3">
+              <div className="font-semibold">{track.title}</div>
+              <div className="text-sm text-gray-600">{track.artist}</div>
+              {track.duration ? <div className="text-xs text-gray-500">Duración: {Math.round(track.duration / 60)} min</div> : null}
+              {track.coverUrl ? (
+                <Link href={track.coverUrl} className="text-sm text-blue-600" target="_blank" rel="noopener noreferrer">
+                  Ver portada
+                </Link>
+              ) : null}
             </li>
           ))}
         </ul>

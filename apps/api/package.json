@@ -5,14 +5,17 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "seed": "tsx src/seed/seed.ts",
-    "test": "vitest --run"
-    ,"start": "node dist/index.js",
-    "build": "tsc -p ."  },
+    "test": "vitest --run",
+    "start": "node dist/index.js",
+    "build": "tsc -p .",
+    "promote-admin": "tsx src/scripts/promote-admin.ts"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@types/morgan": "^1.9.10",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -20,9 +23,11 @@
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.18.2",
+    "morgan": "^1.10.1",
     "zod": "^4.1.11"
   },
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.5.2",

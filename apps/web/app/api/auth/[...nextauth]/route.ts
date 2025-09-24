@@ -1,9 +1,87 @@
 import NextAuth, { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import { getApiBaseUrl } from '@/lib/api'
 
-type Credentials = {
+interface Credentials {
   email?: string
   password?: string
+}
+
+interface BackendLoginResponse {
+  accessToken: string
+  refreshToken: string
+  user: {
+    id: string
+    email: string
+    role: string
+  }
+}
+
+interface BackendRefreshResponse {
+  accessToken: string
+  refreshToken: string
+}
+
+interface AuthUser {
+  id: string
+  email: string
+  name: string
+  role: string
+  accessToken: string
+  refreshToken: string
+  accessTokenExpires: number
+}
+
+interface AuthToken {
+  accessToken?: string
+  refreshToken?: string
+  accessTokenExpires?: number
+  user?: {
+    id?: string
+    email?: string
+    name?: string | null
+    role?: string
+  }
+  error?: string
+}
+
+function decodeJwtExpiration(token: string): number {
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return Date.now()
+    const decoded = JSON.parse(Buffer.from(payload, 'base64').toString('utf8')) as { exp?: number }
+    return (decoded.exp ?? Math.floor(Date.now() / 1000)) * 1000
+  } catch {
+    return Date.now()
+  }
+}
+
+async function refreshAccessToken(token: AuthToken): Promise<AuthToken> {
+  try {
+    const baseUrl = getApiBaseUrl()
+    const res = await fetch(`${baseUrl}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken: token.refreshToken }),
+    })
+
+    if (!res.ok) throw new Error(`Failed to refresh token: ${res.status}`)
+    const data = (await res.json()) as BackendRefreshResponse
+    if (!data.accessToken || !data.refreshToken) throw new Error('Invalid refresh payload')
+
+    const expires = decodeJwtExpiration(data.accessToken)
+
+    return {
+      ...token,
+      accessToken: data.accessToken,
+      refreshToken: data.refreshToken,
+      accessTokenExpires: expires,
+      error: undefined,
+    }
+  } catch (error) {
+    console.error('[nextauth] refreshAccessToken error', error)
+    return { ...token, error: 'RefreshAccessTokenError' }
+  }
 }
 
 const authOptions: NextAuthOptions = {
@@ -11,27 +89,43 @@ const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
-        email: { label: 'Email', type: 'text' },
+        email: { label: 'Email', type: 'email' },
         password: { label: 'Password', type: 'password' },
       },
       async authorize(credentials: Credentials | undefined) {
-        if (!credentials || !credentials.email || !credentials.password) return null
+        if (!credentials?.email || !credentials?.password) return null
+        const baseUrl = getApiBaseUrl()
+
         try {
-          const url = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001') + '/login'
-          console.log('[nextauth] Authorize: calling backend', url)
-          const res = await fetch(url, {
+          const res = await fetch(`${baseUrl}/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: credentials.email, password: credentials.password }),
           })
-          const data = await res.json()
-          console.log('[nextauth] backend response:', data)
-          if (data && data.user) {
-            return { id: data.user.id, name: data.user.name, email: data.user.email }
+
+          if (!res.ok) {
+            console.warn('[nextauth] authorize login failed', res.status)
+            return null
           }
-          return null
-        } catch (err) {
-          console.error('[nextauth] authorize error', err)
+
+          const data = (await res.json()) as BackendLoginResponse
+          if (!data.accessToken || !data.refreshToken || !data.user) return null
+
+          const expires = decodeJwtExpiration(data.accessToken)
+
+          const user: AuthUser = {
+            id: data.user.id,
+            email: data.user.email,
+            name: data.user.email,
+            role: data.user.role,
+            accessToken: data.accessToken,
+            refreshToken: data.refreshToken,
+            accessTokenExpires: expires,
+          }
+
+          return user
+        } catch (error) {
+          console.error('[nextauth] authorize error', error)
           return null
         }
       },
@@ -39,36 +133,51 @@ const authOptions: NextAuthOptions = {
   ],
   secret: process.env.NEXTAUTH_SECRET,
   session: { strategy: 'jwt' },
-  debug: true,
-  useSecureCookies: false,
-  cookies: {
-    sessionToken: {
-      name: 'next-auth.session-token',
-      options: {
-        httpOnly: true,
-        sameSite: 'lax',
-        path: '/',
-        secure: false,
-      },
-    },
-  },
   callbacks: {
     async jwt({ token, user }) {
+      const authToken = token as AuthToken
+
       if (user) {
-        const u = user as { id?: string; name?: string; email?: string }
-        // return a new token object that includes user fields
-        return { ...token, id: u.id, name: u.name, email: u.email }
+        const authUser = user as AuthUser
+        return {
+          ...authToken,
+          accessToken: authUser.accessToken,
+          refreshToken: authUser.refreshToken,
+          accessTokenExpires: authUser.accessTokenExpires,
+          user: {
+            id: authUser.id,
+            email: authUser.email,
+            name: authUser.name,
+            role: authUser.role,
+          },
+          error: undefined,
+        }
       }
-      return token
+
+      if (typeof authToken.accessTokenExpires === 'number' && Date.now() < authToken.accessTokenExpires - 60_000) {
+        return authToken
+      }
+
+      if (!authToken.refreshToken) {
+        return { ...authToken, error: 'MissingRefreshToken' }
+      }
+
+      return refreshAccessToken(authToken)
     },
     async session({ session, token }) {
-      type SessionUser = { id?: string; name?: string | null; email?: string | null }
-      const t = token as unknown as Partial<SessionUser>
-      session.user = session.user || {}
-      const su = session.user as SessionUser
-      su.id = t.id
-      su.name = (t.name as string) || su.name
-      su.email = (t.email as string) || su.email
+      const authToken = token as AuthToken
+
+      if (session.user) {
+        const sessionUser = session.user as typeof session.user & { role?: string }
+        sessionUser.id = authToken.user?.id
+        sessionUser.email = authToken.user?.email ?? sessionUser.email
+        sessionUser.name = authToken.user?.name ?? sessionUser.name
+        sessionUser.role = authToken.user?.role
+      }
+
+      session.accessToken = authToken.accessToken
+      session.error = authToken.error
+
       return session
     },
   },
