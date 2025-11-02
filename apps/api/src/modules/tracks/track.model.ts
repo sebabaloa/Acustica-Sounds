@@ -6,6 +6,10 @@ export interface TrackDoc {
   duration?: number
   coverUrl?: string
   audioUrl?: string
+  provider: 'mux' | 'public' | 'drm'
+  policy: 'signed' | 'public'
+  playbackId?: string
+  signedTtlSeconds?: number
   createdAt: Date
   updatedAt: Date
 }
@@ -17,6 +21,10 @@ const TrackSchema = new Schema<TrackDoc>(
     duration: { type: Number, min: 1, max: 60 * 60 },
     coverUrl: { type: String, trim: true },
     audioUrl: { type: String, trim: true },
+    provider: { type: String, enum: ['mux', 'public', 'drm'], default: 'mux', index: true },
+    policy: { type: String, enum: ['signed', 'public'], default: 'signed' },
+    playbackId: { type: String, trim: true },
+    signedTtlSeconds: { type: Number, min: 5, max: 60 * 60 },
   },
   { timestamps: true }
 )

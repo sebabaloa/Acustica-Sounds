@@ -5,7 +5,13 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "seed": "tsx src/seed/seed.ts",
-    "test": "vitest --run",
+    "test": "vitest run",
+    "test:unit": "vitest run --coverage --runInBand --reporter=default --passWithNoTests --include src/**/*.test.ts --exclude src/e2e/**",
+    "test:e2e": "vitest run src/e2e --runInBand",
+    "test:e2e:full": "vitest run src/e2e --runInBand --reporter=default",
+    "test:coverage": "vitest run --coverage --runInBand",
+    "test:watch": "vitest",
+    "test:prepare:e2e": "tsx src/scripts/e2e-reset.ts",
     "start": "node dist/index.js",
     "build": "tsc -p .",
     "promote-admin": "tsx src/scripts/promote-admin.ts"

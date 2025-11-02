@@ -1,5 +1,6 @@
 import NextAuth, { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
+import type { JWT } from 'next-auth/jwt'
 import { getApiBaseUrl } from '@/lib/api'
 
 interface Credentials {
@@ -32,7 +33,7 @@ interface AuthUser {
   accessTokenExpires: number
 }
 
-interface AuthToken {
+type AuthToken = JWT & {
   accessToken?: string
   refreshToken?: string
   accessTokenExpires?: number
