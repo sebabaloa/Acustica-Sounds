@@ -1,11 +1,3 @@
----
-name: Bug report
-about: Reportar un error en el sistema
-title: "[BUG] "
-labels: bug
-assignees: ""
----
-
 ## Descripción del bug
 Describe claramente el problema.
 
