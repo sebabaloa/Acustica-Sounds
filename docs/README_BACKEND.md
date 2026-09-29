@@ -1,21 +1,3 @@
-
-1 de 22.670
-(sin asunto)
-Recibidos
-
-sebastian baloa <sebabaloa@gmail.com>
-Adjuntos
-18:56 (hace 0 minutos)
-para mí
-
-
- 1 archivo adjunto
-•  Analizado por Gmail
-Redactar:
-Mensaje nuevo
-MinimizarVentana externaCerrar
-Destinatarios
-Asunto
 # 📘 AcústicaSounds – Backend API (README_BACKEND.md)
 
 **Proyecto:** AcústicaSounds  
